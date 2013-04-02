@@ -1,27 +1,31 @@
-#include "RGBdriver.h"
+#include <RGBdriver.h>
 #include <Ultrasonic.h>
 
 #include <SerialLCD.h>
-#include <SoftwareSerial.h> //this is a must
+#include <SoftwareSerial.h>
 
-#define CLK 2//pins definitions for the driver
-#define DIO 3
+#define RGB_PORT              2
+#define DISPLAY_PORT         11
+#define DISTANCE_SENSOR_PORT  7
+#define SOUND_SENSOR_PORT    A0  //Analog
 
-#define DISTANCE_SENSOR 7
-#define SOUND_SENSOR A0
+#ifdef DISPLAY_PORT
+SerialLCD slcd(DISPLAY_PORT, DISPLAY_PORT+1);
 
-SerialLCD slcd(11,12);
-RGBdriver Driver(CLK,DIO);
-Ultrasonic ultrasonic(DISTANCE_SENSOR);
+#ifdef RGB_PORT
+RGBdriver Driver(RGB_PORT, RGB_PORT+1);
 
-int distance;
-int x;
-int last_x;
+#ifdef DISTANCE_SENSOR_PORT
+Ultrasonic ultrasonic(DISTANCE_SENSOR_PORT);
 
-int m;
+
+init_sound_sensor
+
+//#############################################
 
 void setup()
 {
+  init_sound_sensor();
   pinMode(SOUND_SENSOR, INPUT);
 
 //   slcd.begin();
@@ -30,6 +34,8 @@ void setup()
 //   slcd.setCursor(0,0);
 //   slcd.print("The distance:");
 }
+
+//#############################################
 
 void loop()
 {
