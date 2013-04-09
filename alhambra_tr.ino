@@ -1,86 +1,111 @@
-#include <RGBdriver.h>
 #include <Ultrasonic.h>
-
+#include <RGBdriver.h>
 #include <SerialLCD.h>
 #include <SoftwareSerial.h>
 
+#define DISTANCE_SENSOR_PORT  7
+#define SOUND_SENSOR_PORT    A0  // Analog
 #define RGB_PORT              2
 #define DISPLAY_PORT         11
-#define DISTANCE_SENSOR_PORT  7
-#define SOUND_SENSOR_PORT    A0  //Analog
-
-#ifdef DISPLAY_PORT
-SerialLCD slcd(DISPLAY_PORT, DISPLAY_PORT+1);
-
-#ifdef RGB_PORT
-RGBdriver Driver(RGB_PORT, RGB_PORT+1);
 
 #ifdef DISTANCE_SENSOR_PORT
 Ultrasonic ultrasonic(DISTANCE_SENSOR_PORT);
+#endif
 
+#ifdef RGB_PORT
+RGBdriver Driver(RGB_PORT, RGB_PORT+1);
+#endif
 
-init_sound_sensor
+#ifdef DISPLAY_PORT
+SerialLCD slcd(DISPLAY_PORT, DISPLAY_PORT+1);
+#endif
 
-//#############################################
+//############ setups ##########################
 
-void setup()
-{
-  init_sound_sensor();
-  pinMode(SOUND_SENSOR, INPUT);
-
-//   slcd.begin();
-//   slcd.backlight();
-//   slcd.clear();
-//   slcd.setCursor(0,0);
-//   slcd.print("The distance:");
+void setup_distance_sensor() {
+  DISTANCE_MIN =  40; // cm
+  DISTANCE_MAX = 150; // cm
 }
 
-//#############################################
+void setup_sound_sensor() {
+  SOUND_MIN =   0;
+  SOUND_MAX = 400; // max is 1024
+  pinMode(SOUND_SENSOR_PORT, INPUT);
+}
 
-void loop()
-{
-  // ultrasonic.MeasureInCentimeters();
-  // distance = ultrasonic.RangeInCentimeters - 40;
+void setup_rgb() {
+  RGB_DELAY_INCREACE = 2;
+  RGB_DELAY_DECREACE = 6;
+}
 
-  x = analogRead(SOUND_SENSOR);
+void setup_display() {
+  slcd.begin();
+  slcd.backlight();
+  slcd.clear();
+  slcd.setCursor(0,0);
+}
 
-  // slcd.setCursor(0,1);
-  // slcd.print("    ");
-  // slcd.setCursor(0,1);
-  // slcd.print(x,DEC);
+void setup() {
+  setup_sound_sensor();
+  setup_display();
+}
 
-  // slcd.setCursor(5,1);
-  // slcd.print("    ");
-  // slcd.setCursor(5,1);
-  // slcd.print(m,DEC);
+//############ helper ##########################
 
-  // if(distance < 0) {
-  //   distance = 0;
-  // }
+int normalise(int value, int lower, int upper) {
+  if( value < lower) { value = lower; }
+  if( value > upper) { value = upper; }
+  value = 255 * (value - lower) / (upper - lower);
+  return value;
+}
 
-  // if(distance > 100) {
-  //   x = 0;
-  // }
-  // else {
-  //   x = 255 - (255 * distance / 100);
-  // }
+int delayy(int value, int previous_value, int factor) { //TODO better name :)
+  return ((factor - 1) * last_value + value) / factor;
+}
 
-  if(last_x < x) {
-    x = ( 5 * last_x + x) / 6;
+int delayz(int value, int last_value, int inc, int dec) {  //TODO better name :)
+  if(last_value < value) { // increasing
+    last_value = delayy(value, last_value, inc)
   }
-
-  if(last_x > x) {
-    x = ( 5 * last_x + x) / 6;
+  if(last_value >= value) { // decreasing
+    last_value = delayy(value, last_value, dec)
   }
+  return last_value;
+}
 
-  // if(m < x) {
-  //   m = x;
-  // }
+//############ GETS  ###############################
 
- int j = x;
+int get_distance() {
+  ultrasonic.MeasureInCentimeters();
+  int distance = ultrasonic.RangeInCentimeters;
+  return normalise(distance, DISTANCE_MIN, DISTANCE_MAX);
+}
+
+int get_sound() {
+  int sound = analogRead(SOUND_SENSOR_PORT);
+  return normalise(sound, SOUND_MIN, SOUND_MAX);
+}
+
+//############# SETS ################################
+
+void set_rgb(int color) {
   Driver.begin();
-  Driver.SetColor(j,j,j);
+  Driver.SetColor(color, color, color);
   Driver.end();
+}
+
+void set_display(int x, int y, int value) {
+  slcd.setCursor(x, y);
+  slcd.print("    "); // clean 4 digits - TODO be smater here?
+  slcd.setCursor(x, y);
+  slcd.print(value, DEC);
+}
+
+//############ main ##########################
+
+void loop() {
+  delayz(color, previous_color, RGB_DELAY_INCREACE, RGB_DELAY_DECREACE);
+
   delay(10);
   last_x = x;
 }
