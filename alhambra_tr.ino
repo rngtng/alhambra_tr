@@ -22,6 +22,8 @@
 
 #define LOOP_DELAY 10
 
+#define NORM_FACTOR 255
+
 #ifdef DISTANCE_SENSOR_PORT
 Ultrasonic ultrasonic(DISTANCE_SENSOR_PORT);
 #endif
@@ -63,40 +65,29 @@ void setup() {
 int normalise(int value, int lower, int upper) {
   if( value < lower) { value = lower; }
   if( value > upper) { value = upper; }
-  value = (value - lower) / (upper - lower);
+  value = NORM_FACTOR * (value - lower) / (upper - lower);
   return value;
 }
 
-int delayy(int value, int previous_value, int factor) { //TODO better name :)
+int inverse(int value) {
+  return NORM_FACTOR - value;
+}
+
+int _hesitate(int value, int previous_value, int factor) {
   return ((factor - 1) * previous_value + value) / factor;
 }
 
-int delayz(int value, int last_value, int inc, int dec) {  //TODO better name :)
+int hesitate(int value, int last_value, int inc, int dec) {
   if(last_value < value) { // increasing
-    last_value = delayy(value, last_value, inc);
+    last_value = _hesitate(value, last_value, inc);
   }
-  else { // decreasing
-    last_value = delayy(value, last_value, dec);
+  else {  // decreasing
+    last_value = _hesitate(value, last_value, dec);
   }
   return last_value;
 }
 
-//############ GETS  ###############################
-
-int get_distance() {
-  ultrasonic.MeasureInCentimeters();
-  int distance = ultrasonic.RangeInCentimeters;
-  distance = normalise(distance, DISTANCE_MIN, DISTANCE_MAX);
-  return distance;
-}
-
-int get_sound() {
-  int sound = analogRead(SOUND_SENSOR_PORT);
-  sound = normalise(sound, SOUND_MIN, SOUND_MAX);
-  return sound;
-}
-
-int get_random() {
+int randomRead() {
   if(random_loops > 0) {
     random_loops -= LOOP_DELAY;
   }
@@ -105,6 +96,27 @@ int get_random() {
     random_loops = random((random_on) ? RANDOM_ON : RANDOM_OFF);
   }
   return (random_on) ? 1 : 0;
+}
+
+//############ GETS  ###############################
+
+int get_distance() { // returns 0 = nearby, 1 = most
+  ultrasonic.MeasureInCentimeters();
+  int distance = ultrasonic.RangeInCentimeters;
+  distance     = normalise(distance, DISTANCE_MIN, DISTANCE_MAX);
+  return distance;
+}
+
+int get_sound() { // returns 0 = silent, 1 = noisy
+  int sound = analogRead(SOUND_SENSOR_PORT);
+  sound     = normalise(sound, SOUND_MIN, SOUND_MAX);
+  return sound;
+}
+
+int get_random() { // returns 0 = off, 1 = on
+  int randomv = randomRead();
+  randomv     = normalise(randomv, 0, 1);
+  return randomv;
 }
 
 //############# SETS ################################
@@ -129,11 +141,11 @@ void loop() {
   //color          = get_sound();
   //color          = get_random();
 
-  previous_color = delayz(color, previous_color, RGB_DELAY_INCREACE, RGB_DELAY_DECREACE);
+  previous_color = hesitate(color, previous_color, RGB_DELAY_INCREACE, RGB_DELAY_DECREACE);
 
-  set_display(0,0, 255 * previous_color)
+  set_display(0,0, previous_color);
 
-  set_rgb(255 * previous_color);
+  set_rgb(previous_color);
 
   delay(LOOP_DELAY);
 }
