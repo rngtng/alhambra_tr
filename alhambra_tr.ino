@@ -8,6 +8,20 @@
 #define RGB_PORT              2
 #define DISPLAY_PORT         11
 
+#define DISTANCE_MIN  40 // cm
+#define DISTANCE_MAX 150 // cm
+
+#define SOUND_MIN   0
+#define SOUND_MAX 400    // max is 1024
+
+#define RANDOM_OFF 2000  // milli seconds
+#define RANDOM_ON  5000  // milli seconds
+
+#define RGB_DELAY_INCREACE 2
+#define RGB_DELAY_DECREACE 6
+
+#define LOOP_DELAY 10
+
 #ifdef DISTANCE_SENSOR_PORT
 Ultrasonic ultrasonic(DISTANCE_SENSOR_PORT);
 #endif
@@ -20,22 +34,16 @@ RGBdriver Driver(RGB_PORT, RGB_PORT+1);
 SerialLCD slcd(DISPLAY_PORT, DISPLAY_PORT+1);
 #endif
 
+int color          = 0;
+int previous_color = 0;
+
+int random_loops   = 0;
+bool random_on     = true;
+
 //############ setups ##########################
 
-void setup_distance_sensor() {
-  DISTANCE_MIN =  40; // cm
-  DISTANCE_MAX = 150; // cm
-}
-
 void setup_sound_sensor() {
-  SOUND_MIN =   0;
-  SOUND_MAX = 400; // max is 1024
   pinMode(SOUND_SENSOR_PORT, INPUT);
-}
-
-void setup_rgb() {
-  RGB_DELAY_INCREACE = 2;
-  RGB_DELAY_DECREACE = 6;
 }
 
 void setup_display() {
@@ -55,20 +63,20 @@ void setup() {
 int normalise(int value, int lower, int upper) {
   if( value < lower) { value = lower; }
   if( value > upper) { value = upper; }
-  value = 255 * (value - lower) / (upper - lower);
+  value = (value - lower) / (upper - lower);
   return value;
 }
 
 int delayy(int value, int previous_value, int factor) { //TODO better name :)
-  return ((factor - 1) * last_value + value) / factor;
+  return ((factor - 1) * previous_value + value) / factor;
 }
 
 int delayz(int value, int last_value, int inc, int dec) {  //TODO better name :)
   if(last_value < value) { // increasing
-    last_value = delayy(value, last_value, inc)
+    last_value = delayy(value, last_value, inc);
   }
-  if(last_value >= value) { // decreasing
-    last_value = delayy(value, last_value, dec)
+  else { // decreasing
+    last_value = delayy(value, last_value, dec);
   }
   return last_value;
 }
@@ -78,12 +86,25 @@ int delayz(int value, int last_value, int inc, int dec) {  //TODO better name :)
 int get_distance() {
   ultrasonic.MeasureInCentimeters();
   int distance = ultrasonic.RangeInCentimeters;
-  return normalise(distance, DISTANCE_MIN, DISTANCE_MAX);
+  distance = normalise(distance, DISTANCE_MIN, DISTANCE_MAX);
+  return distance;
 }
 
 int get_sound() {
   int sound = analogRead(SOUND_SENSOR_PORT);
-  return normalise(sound, SOUND_MIN, SOUND_MAX);
+  sound = normalise(sound, SOUND_MIN, SOUND_MAX);
+  return sound;
+}
+
+int get_random() {
+  if(random_loops > 0) {
+    random_loops -= LOOP_DELAY;
+  }
+  else {
+    random_on = !random_on;
+    random_loops = random((random_on) ? RANDOM_ON : RANDOM_OFF);
+  }
+  return (random_on) ? 1 : 0;
 }
 
 //############# SETS ################################
@@ -96,7 +117,7 @@ void set_rgb(int color) {
 
 void set_display(int x, int y, int value) {
   slcd.setCursor(x, y);
-  slcd.print("    "); // clean 4 digits - TODO be smater here?
+  slcd.print("    "); // clean 4 digits - TODO be smarter here?
   slcd.setCursor(x, y);
   slcd.print(value, DEC);
 }
@@ -104,8 +125,15 @@ void set_display(int x, int y, int value) {
 //############ main ##########################
 
 void loop() {
-  delayz(color, previous_color, RGB_DELAY_INCREACE, RGB_DELAY_DECREACE);
+  color          = get_distance();
+  //color          = get_sound();
+  //color          = get_random();
 
-  delay(10);
-  last_x = x;
+  previous_color = delayz(color, previous_color, RGB_DELAY_INCREACE, RGB_DELAY_DECREACE);
+
+  set_display(0,0, 255 * previous_color)
+
+  set_rgb(255 * previous_color);
+
+  delay(LOOP_DELAY);
 }
